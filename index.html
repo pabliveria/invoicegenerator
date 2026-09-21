@@ -1167,19 +1167,35 @@ function exportPDF(){
   saveInvoiceToHistory();
   const el=document.getElementById('invoice-paper');
   const fname=(s.inv.num||'factura').replace(/[^a-zA-Z0-9_-]/g,'_')+'.pdf';
-  if(window.html2pdf){
-    const btns=el.querySelectorAll('button,a.ppay-btn');
-    toast('Generando PDF…','ok');
-    html2pdf().set({
-      margin:0,
-      filename:fname,
-      image:{type:'jpeg',quality:0.98},
-      html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},
-      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
-    }).from(el).save().catch(()=>{window.print();});
-  } else {
-    window.print();
-  }
+  if(!window.html2pdf){window.print();return;}
+  toast('Generando PDF…','ok');
+  html2pdf().set({
+    margin:0,
+    filename:fname,
+    image:{type:'jpeg',quality:0.98},
+    html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},
+    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+  }).from(el).outputPdf('blob').then(async blob=>{
+    const file=new File([blob],fname,{type:'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      try{
+        await navigator.share({files:[file],title:fname});
+        toast('PDF listo ✓','ok');
+        return;
+      }catch(shareErr){
+        if(shareErr && shareErr.name==='AbortError')return; // el usuario cerró el panel de compartir
+      }
+    }
+    // Sin Web Share API con ficheros: descarga clásica (funciona en Safari normal y Android)
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+    toast('PDF listo ✓','ok');
+  }).catch(err=>{
+    console.error(err);
+    toast('No se pudo generar el PDF, prueba desde Safari','err');
+  });
 }
 function copyNum(){
   navigator.clipboard.writeText(s.inv.num)
