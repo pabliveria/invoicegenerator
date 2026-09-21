@@ -797,6 +797,25 @@ function saveCompany(){
 }
 
 // ── BACKUP / RESTORE ──
+function isStandaloneApp(){
+  return (window.navigator.standalone===true) || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+}
+
+function downloadOrShareFile(blob,fname,mime){
+  const file=new File([blob],fname,{type:mime});
+  if(isStandaloneApp() && navigator.canShare && navigator.canShare({files:[file]})){
+    navigator.share({files:[file],title:fname}).catch(()=>{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
+    });
+    return;
+  }
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+}
+
 function exportBackup(){
   const backup={
     co:s.co,
@@ -807,14 +826,7 @@ function exportBackup(){
   };
   const fname='invoiceflow-backup-'+new Date().toISOString().slice(0,10)+'.json';
   const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
-  const file=new File([blob],fname,{type:'application/json'});
-  if(navigator.canShare && navigator.canShare({files:[file]})){
-    navigator.share({files:[file],title:fname}).then(()=>toast('Copia exportada ✓','ok')).catch(()=>{});
-    return;
-  }
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),60000);
+  downloadOrShareFile(blob,fname,'application/json');
   toast('Copia exportada ✓','ok');
 }
 
@@ -1252,24 +1264,10 @@ function exportPDF(){
     margin:0,
     filename:fname,
     image:{type:'jpeg',quality:0.98},
-    html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},
+    html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',windowWidth:1100,width:810},
     jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
-  }).from(el).outputPdf('blob').then(async blob=>{
-    const file=new File([blob],fname,{type:'application/pdf'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      try{
-        await navigator.share({files:[file],title:fname});
-        toast('PDF listo ✓','ok');
-        return;
-      }catch(shareErr){
-        if(shareErr && shareErr.name==='AbortError')return; // el usuario cerró el panel de compartir
-      }
-    }
-    // Sin Web Share API con ficheros: descarga clásica (funciona en Safari normal y Android)
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }).from(el).outputPdf('blob').then(blob=>{
+    downloadOrShareFile(blob,fname,'application/pdf');
     toast('PDF listo ✓','ok');
   }).catch(err=>{
     console.error(err);
