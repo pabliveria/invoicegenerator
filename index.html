@@ -389,7 +389,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--g100);color:var(-
           <div id="lzone-inner">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.5" style="margin:0 auto 6px;display:block"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             <div style="font-size:12px;color:#64748B">Subir logo</div>
-            <div class="lhint">PNG, JPG, SVG · máx 2 MB</div>
+            <div class="lhint">PNG, JPG, SVG · cualquier tamaño</div>
           </div>
         </div>
       </div>
@@ -572,6 +572,20 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--g100);color:var(-
         </div>
         <div class="lhint" style="text-align:center;margin-top:8px">Al exportar a PDF la factura se guarda automáticamente</div>
       </div>
+      <div class="div"></div>
+      <div class="sec">
+        <div class="stitle">Copia de seguridad</div>
+        <div class="lhint" style="margin-bottom:8px">Mueve tus clientes, facturas y datos de empresa a otro navegador o dispositivo (cada navegador guarda sus datos por separado).</div>
+        <button class="btn gdk sm full" onclick="exportBackup()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar copia de seguridad
+        </button>
+        <input type="file" id="backup-file" accept="application/json" style="display:none" onchange="importBackupFile(event)">
+        <button class="btn gdk sm full mt8" onclick="document.getElementById('backup-file').click()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Importar copia de seguridad
+        </button>
+      </div>
     </div>
 
   </div><!-- /panel -->
@@ -742,13 +756,27 @@ function setTab(id,btn){
 // ── LOGO ──
 function handleLogo(e){
   const f=e.target.files[0];if(!f)return;
-  if(f.size>2*1024*1024){toast('Logo demasiado grande (máx 2MB)','err');return;}
   const r=new FileReader();
   r.onload=ev=>{
-    s.co.logo=ev.target.result;
-    document.getElementById('lzone-inner').innerHTML=`<img src="${ev.target.result}" style="max-height:52px;max-width:130px;object-fit:contain;display:block;margin:0 auto 4px"><div class="lhint">Click para cambiar</div>`;
-    render();
+    const img=new Image();
+    img.onload=()=>{
+      const maxDim=300; // un logo no necesita más resolución que esta
+      let w=img.width,h=img.height;
+      if(w>h){if(w>maxDim){h=Math.round(h*maxDim/w);w=maxDim;}}
+      else{if(h>maxDim){w=Math.round(w*maxDim/h);h=maxDim;}}
+      const canvas=document.createElement('canvas');
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      const dataUrl=canvas.toDataURL('image/png');
+      s.co.logo=dataUrl;
+      document.getElementById('lzone-inner').innerHTML=`<img src="${dataUrl}" style="max-height:52px;max-width:130px;object-fit:contain;display:block;margin:0 auto 4px"><div class="lhint">Click para cambiar</div>`;
+      render();
+      toast('Logo cargado ✓','ok');
+    };
+    img.onerror=()=>toast('No se pudo leer la imagen seleccionada','err');
+    img.src=ev.target.result;
   };
+  r.onerror=()=>toast('No se pudo leer el archivo','err');
   r.readAsDataURL(f);
 }
 
@@ -766,6 +794,57 @@ function fillCo(){
 function saveCompany(){
   localStorage.setItem('iflow_co',JSON.stringify(s.co));
   toast('Empresa guardada ✓','ok');
+}
+
+// ── BACKUP / RESTORE ──
+function exportBackup(){
+  const backup={
+    co:s.co,
+    clients:clients,
+    history:history_,
+    lastN:localStorage.getItem('iflow_lastN')||'0',
+    exportedAt:new Date().toISOString()
+  };
+  const fname='invoiceflow-backup-'+new Date().toISOString().slice(0,10)+'.json';
+  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+  const file=new File([blob],fname,{type:'application/json'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    navigator.share({files:[file],title:fname}).then(()=>toast('Copia exportada ✓','ok')).catch(()=>{});
+    return;
+  }
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+  toast('Copia exportada ✓','ok');
+}
+
+function importBackupFile(e){
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    let data;
+    try{data=JSON.parse(ev.target.result);}catch(err){toast('Archivo de copia no válido','err');return;}
+    let added=0;
+    if(data.co&&!s.co.name){Object.assign(s.co,data.co);localStorage.setItem('iflow_co',JSON.stringify(s.co));fillCo();}
+    if(Array.isArray(data.clients)){
+      const existingIds=new Set(clients.map(c=>c.id));
+      data.clients.forEach(c=>{if(!existingIds.has(c.id)){clients.push(c);added++;}});
+      localStorage.setItem('iflow_clients',JSON.stringify(clients));
+      renderClients();
+    }
+    if(Array.isArray(data.history)){
+      const existingNums=new Set(history_.map(h=>h.num));
+      data.history.forEach(h=>{if(!existingNums.has(h.num))history_.unshift(h);});
+      if(history_.length>50)history_=history_.slice(0,50);
+      localStorage.setItem('iflow_history',JSON.stringify(history_));
+      renderHistory();
+    }
+    render();
+    e.target.value='';
+    toast(`Copia importada ✓ (${added} clientes nuevos)`,'ok');
+  };
+  r.onerror=()=>toast('No se pudo leer el archivo','err');
+  r.readAsText(f);
 }
 
 // ── CLIENTS ──
