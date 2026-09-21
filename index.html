@@ -6,6 +6,7 @@
 <title>InvoiceFlow — Generador de Facturas</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -1164,7 +1165,21 @@ function exportPDF(){
   const n=s.inv.num.match(/(\d+)$/);
   if(n)localStorage.setItem('iflow_lastN',n[1]);
   saveInvoiceToHistory();
-  window.print();
+  const el=document.getElementById('invoice-paper');
+  const fname=(s.inv.num||'factura').replace(/[^a-zA-Z0-9_-]/g,'_')+'.pdf';
+  if(window.html2pdf){
+    const btns=el.querySelectorAll('button,a.ppay-btn');
+    toast('Generando PDF…','ok');
+    html2pdf().set({
+      margin:0,
+      filename:fname,
+      image:{type:'jpeg',quality:0.98},
+      html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+    }).from(el).save().catch(()=>{window.print();});
+  } else {
+    window.print();
+  }
 }
 function copyNum(){
   navigator.clipboard.writeText(s.inv.num)
