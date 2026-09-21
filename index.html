@@ -1266,12 +1266,14 @@ function exportPDF(){
     image:{type:'jpeg',quality:0.98},
     html2canvas:{
       scale:2,useCORS:true,backgroundColor:'#ffffff',
-      windowWidth:1100,width:810,
+      windowWidth:1100,
       onclone:(doc)=>{
         doc.querySelectorAll('html,body,.app,.pv,.panel,.sb,.paper').forEach(elx=>{
           elx.style.overflow='visible';
           elx.style.height='auto';
           elx.style.maxHeight='none';
+          elx.style.width='auto';
+          elx.style.maxWidth='none';
         });
       }
     },
