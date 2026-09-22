@@ -441,10 +441,16 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--g100);color:var(-
         <div class="f"><label class="lbl">Código Postal</label><input class="inp" id="cl-zip" type="text" placeholder="28001" oninput="s.cl.zip=this.value;render()"></div>
         <div class="f"><label class="lbl">Email</label><input class="inp" id="cl-email" type="email" placeholder="cliente@email.com" oninput="s.cl.email=this.value;render()"></div>
         <div class="f"><label class="lbl">Teléfono</label><input class="inp" id="cl-phone" type="tel" placeholder="+34 600 000 000" oninput="s.cl.phone=this.value;render()"></div>
-        <button class="btn blu sm full mt8" onclick="saveClientForm()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
-          Guardar como cliente
-        </button>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="btn gdk sm" style="flex:1" onclick="newClientForm()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuevo cliente
+          </button>
+          <button class="btn blu sm" style="flex:1" onclick="saveClientForm()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+            Guardar como cliente
+          </button>
+        </div>
       </div>
     </div>
 
@@ -891,6 +897,13 @@ function fillClForm(){
   set('cl-name',c.name);set('cl-co',c.company);set('cl-taxid',c.taxId);
   set('cl-addr',c.addr);set('cl-city',c.city);set('cl-zip',c.zip);set('cl-country',c.country);
   set('cl-email',c.email);set('cl-phone',c.phone);
+}
+
+function newClientForm(){
+  s.selId=null;
+  s.cl={name:'',company:'',taxId:'',addr:'',city:'',zip:'',country:'',email:'',phone:''};
+  fillClForm();renderClients();render();
+  toast('Formulario listo para un cliente nuevo','ok');
 }
 
 function saveClientForm(){
@@ -1474,3 +1487,4 @@ function toast(msg,type=''){
 </script>
 </body>
 </html>
+
